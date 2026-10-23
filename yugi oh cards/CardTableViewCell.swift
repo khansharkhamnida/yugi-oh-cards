@@ -190,15 +190,13 @@ class CardTableViewCell: UITableViewCell {
         }
         
         // Load image from Assets.xcassets
-        if let imageName = card.imageURLString,
-           let image = UIImage(named: imageName) {
-
+        if let image = CardImageStore.load(card.imageURLString) {
             cardImageView.image = image
             cardImageView.isHidden = false
-
         } else {
             cardImageView.image = nil
             cardImageView.isHidden = true
         }
+
     }
 }

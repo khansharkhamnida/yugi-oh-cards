@@ -93,12 +93,10 @@ class CardDetailsViewController: UITableViewController {
     }
     
     private func setupCardImage() {
-        guard let imageName = card.imageURLString,
-              let image = UIImage(named: imageName) else {
-            tableView.tableHeaderView = nil
+        guard let image = CardImageStore.load(card.imageURLString) else { tableView.tableHeaderView = nil
             return
         }
-
+ 
         let headerView = UIView()
         headerView.backgroundColor = .systemBackground
 
@@ -266,7 +264,7 @@ extension CardDetailsViewController: CardEditViewControllerDelegate {
         _ controller: CardEditViewController,
         didSave card: YugiohCard
     ) {
-        // MARK: 5. Reassign the stored property then reload the table
+        
         self.card = card
 
         title = card.name

@@ -21,6 +21,7 @@ class YugiohCardDataStore {
             cardType: .monster,
             description: "This legendary dragon is a powerful engine of destruction.",
             cardNumber: "LOB-001",
+            imageURLString: "BlueEyes",
             attribute: .light,
             level: 8,
             monsterType: .dragon,
@@ -32,6 +33,7 @@ class YugiohCardDataStore {
             cardType: .spell,
             description: "Special Summon 1 monster from either GY.",
             cardNumber: "LOB-118",
+            imageURLString: "MonsterReborn",
             property: .normal
         )
     ]
