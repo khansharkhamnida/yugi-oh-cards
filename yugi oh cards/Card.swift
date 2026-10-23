@@ -8,13 +8,17 @@
 import Foundation
 import UIKit
 
-enum CardType: String, CaseIterable, Codable {
+// MARK: Diffable Data Source
+// MARK: 1. Conform our custom item to Hashable for diffable to work
+nonisolated enum CardType: String, CaseIterable, Codable, Hashable {
     case monster = "Monster"
     case spell = "Spell"
     case trap = "Trap"
 }
 
-enum CardAttribute: String, CaseIterable, Codable {
+// MARK: Diffable Data Source
+// MARK: 1. Conform our custom item to Hashable for diffable to work
+nonisolated enum CardAttribute: String, CaseIterable, Codable, Hashable {
     case dark = "DARK"
     case divine = "DIVINE"
     case earth = "EARTH"
@@ -24,7 +28,9 @@ enum CardAttribute: String, CaseIterable, Codable {
     case wind = "WIND"
 }
 
-enum SpellTrapProperty: String, CaseIterable, Codable {
+// MARK: Diffable Data Source
+// MARK: 1. Conform our custom item to Hashable for diffable to work
+nonisolated enum SpellTrapProperty: String, CaseIterable, Codable, Hashable {
     case normal = "Normal"
     case continuous = "Continuous"
     case counter = "Counter"     // Trap only
@@ -34,7 +40,9 @@ enum SpellTrapProperty: String, CaseIterable, Codable {
     case ritual = "Ritual"       // Spell only
 }
 
-enum MonsterType: String, Codable, CaseIterable {
+// MARK: Diffable Data Source
+// MARK: 1. Conform our custom item to Hashable for diffable to work
+nonisolated enum MonsterType: String, Codable, CaseIterable, Hashable {
     case aqua = "Aqua"
     case beast = "Beast"
     case beastWarrior = "Beast-Warrior"
