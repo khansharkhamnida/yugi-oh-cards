@@ -266,6 +266,7 @@ extension CardDetailsViewController: CardEditViewControllerDelegate {
         _ controller: CardEditViewController,
         didSave card: YugiohCard
     ) {
+        // MARK: 5. Reassign the stored property then reload the table
         self.card = card
 
         title = card.name

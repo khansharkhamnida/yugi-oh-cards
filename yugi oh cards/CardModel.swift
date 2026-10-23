@@ -6,6 +6,7 @@
 //
 import Foundation
 
+// MARK: 1. & 2. Converted item from class to struct, removed init
 struct YugiohCard: Identifiable, Codable {
     // CRUD & Identity
     let id: UUID                  // Required for SwiftUI Lists

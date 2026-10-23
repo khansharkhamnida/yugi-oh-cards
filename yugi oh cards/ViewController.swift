@@ -260,6 +260,7 @@ extension ViewController: CardDetailsViewControllerDelegate {
         _ controller: CardDetailsViewController,
         didUpdate card: YugiohCard
     ) {
+        // MARK: 4. Update item by finding by ID and replace it in the array
         if let index = cards.firstIndex(where: { $0.id == card.id }) {
             cards[index] = card
             tableView.reloadData()
