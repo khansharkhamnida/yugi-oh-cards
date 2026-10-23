@@ -86,6 +86,8 @@ class CardDetailsViewController: UITableViewController {
 
         // Make the status bar text white
         navigationController?.navigationBar.barStyle = .black
+        
+        
     }
     
     @objc func setUpLayout(){

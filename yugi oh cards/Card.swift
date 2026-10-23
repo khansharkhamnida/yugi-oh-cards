@@ -10,6 +10,8 @@ import UIKit
 
 // MARK: Diffable Data Source
 // MARK: 1. Conform our custom item to Hashable for diffable to work
+// MARK: Search Scope
+// MARK: 1. Make it CaseIterable
 nonisolated enum CardType: String, CaseIterable, Codable, Hashable {
     case monster = "Monster"
     case spell = "Spell"

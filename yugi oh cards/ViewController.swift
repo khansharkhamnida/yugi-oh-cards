@@ -8,14 +8,20 @@
 import UIKit
 
 //scenedelegate -> wraps in navigation controller -> viewcontroller -> tableview (card list) on home page -> push controller (when one of them in the list is tapped) ->tableview for details page -> present controller (inside a button) tableview for edit page
+
 // MARK: Diffable Data Source
 // MARK: 2. Removed conformance to UITableViewDataSource
 class ViewController: UIViewController,
-                      UITableViewDelegate  { // UITableViewDataSource
+                      UITableViewDelegate, UISearchBarDelegate {
+    // UITableViewDataSource
     
     // MARK: Diffable Data Source
     // MARK: 3. Add new property of diffable data source
     private var dataSource: YugiohCardDataSource!
+    
+    // MARK: Search Scope
+    // MARK: 2. Add scopeTitles
+    private var scopeTitles: [String] = ["All"] + CardType.allCases.map { $0.rawValue.capitalized }
 
     var titleLabelText = "Yugi Oh Cards Collection"
     let addButton: UIButton = {
@@ -69,6 +75,20 @@ class ViewController: UIViewController,
         return label
     }()
     
+    // MARK: Search
+    // MARK: 1. Add search bar to filter items in real-time
+    private let searchController = UISearchController(searchResultsController: nil)
+    private var filteredItems: [YugiohCard] = []
+
+//    private var isSearching: Bool {
+//        searchController.isActive && !(searchController.searchBar.text?.isEmpty ?? true)
+//    }
+    private var isSearching: Bool {
+        let hasText = !(searchController.searchBar.text?.isEmpty ?? true)
+        let hasScope = searchController.searchBar.selectedScopeButtonIndex != 0 // not "All"
+        return searchController.isActive && (hasText || hasScope)
+    }
+    
     func setUpUI(){
         addButton.addTarget(
             self,
@@ -94,6 +114,14 @@ class ViewController: UIViewController,
             CardTableViewCell.self,
             forCellReuseIdentifier: CardTableViewCell.identifier
         )
+        
+        // MARK: Search
+        // MARK: 2. Configure the searchbar
+        searchController.searchResultsUpdater = self
+        searchController.obscuresBackgroundDuringPresentation = false
+        searchController.searchBar.placeholder = "Search Items"
+        navigationItem.searchController = searchController
+        definesPresentationContext = true
     }
     
     // MARK: cardsList will now populate from initial seed
@@ -194,9 +222,13 @@ class ViewController: UIViewController,
             }
         dataSource.defaultRowAnimation = .fade
 
+        searchController.searchBar.scopeButtonTitles = scopeTitles
+        searchController.searchBar.delegate = self
+        
         cards = store.loadYugiohCards()
         applySnapshot(animatingDifferences: false)   // initial display, no animation
         
+        // TODO: Fix the try? -> try compile error
         NotificationCenter.default.addObserver(forName: UIApplication.willResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
             guard let self else { return }
             try? self.store.saveYugiohCards(self.cards)
@@ -234,8 +266,10 @@ class ViewController: UIViewController,
     private func applySnapshot(animatingDifferences: Bool = true) {
         var snapshot = NSDiffableDataSourceSnapshot<CardType, YugiohCard>()
         
+        let current = isSearching ? filteredItems : cards
+        
         // Group items by type (1)
-        let grouped = Dictionary(grouping: cards, by: { $0.cardType })
+        let grouped = Dictionary(grouping: current, by: { $0.cardType })
         
         // Sort types alphabetically
         let sortedTypes = grouped.keys.sorted(by: { $0.rawValue < $1.rawValue } )
@@ -252,6 +286,9 @@ class ViewController: UIViewController,
         
         // Apply to data source
         dataSource.apply(snapshot, animatingDifferences: animatingDifferences)
+        
+        // call the background message here!
+        updateBackgroundMessage()
     }
     
 //    func tableView(
@@ -282,6 +319,40 @@ class ViewController: UIViewController,
         detailsVC.delegate = self
         navigationController?.pushViewController(detailsVC, animated: true)
         tableView.deselectRow(at: indexPath, animated: true)
+    }
+    
+    func tableView(_ tableView: UITableView,
+                   trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath)
+    -> UISwipeActionsConfiguration? {
+        guard let item = dataSource.itemIdentifier(for: indexPath) else { return nil }
+
+        let delete = UIContextualAction(style: .destructive, title: "Delete") { _,_,done in
+            self.cards.removeAll { $0.id == item.id }
+            do {
+                try self.store.saveYugiohCards(self.cards)
+            } catch {
+                self.showError(error)
+            }
+            self.applySnapshot()
+            done(true)
+        }
+
+        return UISwipeActionsConfiguration(actions: [delete])
+    }
+    
+    private func updateBackgroundMessage() {
+        let label = UILabel()
+        label.textAlignment = .center
+        label.numberOfLines = 0
+        if cards.isEmpty {
+            label.text = "No items yet. Tap + to add one."
+        } else if isSearching && filteredItems.isEmpty {
+            label.text = "No results."
+        } else {
+            tableView.backgroundView = nil
+            return
+        }
+        tableView.backgroundView = label
     }
     
     @objc func addCardTapped() {
@@ -375,6 +446,48 @@ extension ViewController: CardEditViewControllerDelegate {
 class YugiohCardDataSource: UITableViewDiffableDataSource<CardType, YugiohCard> {
     override func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
         snapshot().sectionIdentifiers[section].rawValue
+    }
+}
+//
+//extension ViewController: UISearchResultsUpdating {
+//    func updateSearchResults(for searchController: UISearchController) {
+//        guard let searchText = searchController.searchBar.text?.lowercased(),
+//              !searchText.isEmpty else {
+//            applySnapshot()
+//            return
+//        }
+//
+//        filteredItems = cards.filter { item in
+//            item.name.lowercased().contains(searchText)
+//        }
+//        applySnapshot()
+//    }
+//}
+
+extension ViewController: UISearchResultsUpdating {
+    func updateSearchResults(for searchController: UISearchController) {
+        let searchBar = searchController.searchBar
+        let searchText = searchBar.text?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased() ?? ""
+        let scopeIndex = searchBar.selectedScopeButtonIndex
+
+        // 1. start from all items
+        var results = cards
+
+        // 2. narrow by scope (index 0 is "All")
+        if scopeIndex != 0 {
+            let type = CardType.allCases[scopeIndex - 1]
+            results = results.filter { $0.cardType == type }
+        }
+
+        // 3. narrow by search text
+        if !searchText.isEmpty {
+            results = results.filter { $0.name.lowercased().contains(searchText) }
+        }
+
+        filteredItems = results
+        applySnapshot()
     }
 }
 
