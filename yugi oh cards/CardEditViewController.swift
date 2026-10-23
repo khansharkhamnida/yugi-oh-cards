@@ -640,7 +640,8 @@ class CardEditViewController: UITableViewController {
             )
             return
         }
-
+        
+        // MARK: 3. Created new instance with updated values
         let savedCard = YugiohCard(
             id: card?.id ?? UUID(),
             name: name,

@@ -8,9 +8,20 @@
 import UIKit
 
 //scenedelegate -> wraps in navigation controller -> viewcontroller -> tableview (card list) on home page -> push controller (when one of them in the list is tapped) ->tableview for details page -> present controller (inside a button) tableview for edit page
+
+// MARK: Diffable Data Source
+// MARK: 2. Removed conformance to UITableViewDataSource
 class ViewController: UIViewController,
-                      UITableViewDataSource,
-                      UITableViewDelegate  {
+                      UITableViewDelegate, UISearchBarDelegate {
+    // UITableViewDataSource
+    
+    // MARK: Diffable Data Source
+    // MARK: 3. Add new property of diffable data source
+    private var dataSource: YugiohCardDataSource!
+    
+    // MARK: Search Scope
+    // MARK: 2. Add scopeTitles
+    private var scopeTitles: [String] = ["All"] + CardType.allCases.map { $0.rawValue.capitalized }
 
     var titleLabelText = "Yugi Oh Cards Collection"
     let addButton: UIButton = {
@@ -64,6 +75,20 @@ class ViewController: UIViewController,
         return label
     }()
     
+    // MARK: Search
+    // MARK: 1. Add search bar to filter items in real-time
+    private let searchController = UISearchController(searchResultsController: nil)
+    private var filteredItems: [YugiohCard] = []
+
+//    private var isSearching: Bool {
+//        searchController.isActive && !(searchController.searchBar.text?.isEmpty ?? true)
+//    }
+    private var isSearching: Bool {
+        let hasText = !(searchController.searchBar.text?.isEmpty ?? true)
+        let hasScope = searchController.searchBar.selectedScopeButtonIndex != 0 // not "All"
+        return searchController.isActive && (hasText || hasScope)
+    }
+    
     func setUpUI(){
         addButton.addTarget(
             self,
@@ -82,48 +107,29 @@ class ViewController: UIViewController,
             right: 0
         )
         
-        tableView.dataSource = self
+        // tableView.dataSource = self
         tableView.delegate = self
 
         tableView.register(
             CardTableViewCell.self,
             forCellReuseIdentifier: CardTableViewCell.identifier
         )
+        
+        // MARK: Search
+        // MARK: 2. Configure the searchbar
+        searchController.searchResultsUpdater = self
+        searchController.obscuresBackgroundDuringPresentation = false
+        searchController.searchBar.placeholder = "Search Items"
+        navigationItem.searchController = searchController
+        definesPresentationContext = true
     }
     
-    //cardsList
-    var cards: [YugiohCard] = [
-        YugiohCard(
-            name: "Dark Magician",
-            cardType: .monster,
-            description: "The ultimate wizard in terms of attack and defense.",
-            cardNumber: "LOB-005",
-            imageURLString: "dark-magician",
-            attribute: .dark,
-            level: 7,
-            monsterType: .aqua,
-            atk: 2500,
-            def: 2100
-        ),
-        YugiohCard(
-            name: "Blue-Eyes White Dragon",
-            cardType: .monster,
-            description: "This legendary dragon is a powerful engine of destruction.",
-            cardNumber: "LOB-001",
-            attribute: .light,
-            level: 8,
-            monsterType: .dragon,
-            atk: 3000,
-            def: 2500
-        ),
-        YugiohCard(
-            name: "Monster Reborn",
-            cardType: .spell,
-            description: "Special Summon 1 monster from either GY.",
-            cardNumber: "LOB-118",
-            property: .normal
-        )
-    ]
+    // MARK: cardsList will now populate from initial seed
+    var cards: [YugiohCard] = []
+    
+    // MARK: 3. Add store property to main view controller
+    private let store = YugiohCardDataStore.shared
+    
     func setUpLayout(){
         view.backgroundColor = .systemBackground
         
@@ -196,50 +202,157 @@ class ViewController: UIViewController,
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        cards = store.loadYugiohCards()
+        
         setUpUI()
         setUpLayout()
-    }
-    
-    //tableView for the card list
-    func tableView(
-        _ tableView: UITableView,
-        numberOfRowsInSection section: Int
-    ) -> Int {
-        return cards.count
-    }
-
-    func tableView(
-        _ tableView: UITableView,
-        cellForRowAt indexPath: IndexPath
-    ) -> UITableViewCell {
-
-        let cell = tableView.dequeueReusableCell(
-            withIdentifier: CardTableViewCell.identifier,
-            for: indexPath
-        ) as! CardTableViewCell
-
-        cell.configure(with: cards[indexPath.row])
-        return cell
-    }
-    
-    func tableView(
-        _ tableView: UITableView,
-        didSelectRowAt indexPath: IndexPath
-    ) {
-        let selectedCard = cards[indexPath.row]
-
-        let detailsVC = CardDetailsViewController(
-            card: selectedCard
-        )
-
-        detailsVC.delegate = self
         
-        navigationController?.pushViewController(
-            detailsVC,
-            animated: true
-        )
+        // MARK: Diffable Data Source
+        // MARK: 4. Setup the data source
+        // The closure replaces the cellForRowAt and we no longer have to handle indexPath ourselves -> every cell configured from YugiohCard lorh
+        dataSource = YugiohCardDataSource(tableView: tableView) { tableView, indexPath, item in
+                guard let cell = tableView.dequeueReusableCell(
+                    withIdentifier: CardTableViewCell.identifier,
+                    for: indexPath
+                ) as? CardTableViewCell else {
+                    return UITableViewCell()
+                }
+                cell.configure(with: item)
+                return cell
+            }
+        dataSource.defaultRowAnimation = .fade
 
+        searchController.searchBar.scopeButtonTitles = scopeTitles
+        searchController.searchBar.delegate = self
+        
+        cards = store.loadYugiohCards()
+        applySnapshot(animatingDifferences: false)   // initial display, no animation
+        
+        // TODO: Fix the try? -> try compile error
+        NotificationCenter.default.addObserver(forName: UIApplication.willResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            guard let self else { return }
+            try? self.store.saveYugiohCards(self.cards)
+        }
+    }
+    
+    // MARK: Diffable Data Source
+    // MARK: 2. Removed conformance to UITableViewDataSource
+//    //tableView for the card list
+//    func tableView(
+//        _ tableView: UITableView,
+//        numberOfRowsInSection section: Int
+//    ) -> Int {
+//        return cards.count
+//    }
+
+    // MARK: Diffable Data Source
+    // MARK: 2. Removed conformance to UITableViewDataSource
+//    func tableView(
+//        _ tableView: UITableView,
+//        cellForRowAt indexPath: IndexPath
+//    ) -> UITableViewCell {
+//
+//        let cell = tableView.dequeueReusableCell(
+//            withIdentifier: CardTableViewCell.identifier,
+//            for: indexPath
+//        ) as! CardTableViewCell
+//
+//        cell.configure(with: cards[indexPath.row])
+//        return cell
+//    }
+    
+    // MARK: Diffable Data Source
+    // MARK: 5. Define the snapshot function -> we replace tableView.reloadData with this applySnapshot function...
+    private func applySnapshot(animatingDifferences: Bool = true) {
+        var snapshot = NSDiffableDataSourceSnapshot<CardType, YugiohCard>()
+        
+        let current = isSearching ? filteredItems : cards
+        
+        // Group items by type (1)
+        let grouped = Dictionary(grouping: current, by: { $0.cardType })
+        
+        // Sort types alphabetically
+        let sortedTypes = grouped.keys.sorted(by: { $0.rawValue < $1.rawValue } )
+        
+        // Build snapshot
+        snapshot.appendSections(sortedTypes)
+//        for type in sortedTypes {
+//            // Force unwrap!
+//            snapshot.appendItems(grouped[type]!, toSection: type)
+//        }
+        for type in sortedTypes {
+            snapshot.appendItems(grouped[type] ?? [], toSection: type)
+        }
+        
+        // Apply to data source
+        dataSource.apply(snapshot, animatingDifferences: animatingDifferences)
+        
+        // call the background message here!
+        updateBackgroundMessage()
+    }
+    
+//    func tableView(
+//        _ tableView: UITableView,
+//        didSelectRowAt indexPath: IndexPath
+//    ) {
+//        let selectedCard = cards[indexPath.row]
+//
+//        let detailsVC = CardDetailsViewController(
+//            card: selectedCard
+//        )
+//
+//        detailsVC.delegate = self
+//        
+//        navigationController?.pushViewController(
+//            detailsVC,
+//            animated: true
+//        )
+//
+//        tableView.deselectRow(at: indexPath, animated: true)
+//    }
+    
+    // MARK: Diffable Data Source
+    // MARK: 8. Replace tableView didSelectRowAt to use the data source
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        guard let selectedCard = dataSource.itemIdentifier(for: indexPath) else { return }
+        let detailsVC = CardDetailsViewController(card: selectedCard)
+        detailsVC.delegate = self
+        navigationController?.pushViewController(detailsVC, animated: true)
         tableView.deselectRow(at: indexPath, animated: true)
+    }
+    
+    func tableView(_ tableView: UITableView,
+                   trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath)
+    -> UISwipeActionsConfiguration? {
+        guard let item = dataSource.itemIdentifier(for: indexPath) else { return nil }
+
+        let delete = UIContextualAction(style: .destructive, title: "Delete") { _,_,done in
+            self.cards.removeAll { $0.id == item.id }
+            do {
+                try self.store.saveYugiohCards(self.cards)
+            } catch {
+                self.showError(error)
+            }
+            self.applySnapshot()
+            done(true)
+        }
+
+        return UISwipeActionsConfiguration(actions: [delete])
+    }
+    
+    private func updateBackgroundMessage() {
+        let label = UILabel()
+        label.textAlignment = .center
+        label.numberOfLines = 0
+        if cards.isEmpty {
+            label.text = "No items yet. Tap + to add one."
+        } else if isSearching && filteredItems.isEmpty {
+            label.text = "No results."
+        } else {
+            tableView.backgroundView = nil
+            return
+        }
+        tableView.backgroundView = label
     }
     
     @objc func addCardTapped() {
@@ -260,10 +373,21 @@ extension ViewController: CardDetailsViewControllerDelegate {
         _ controller: CardDetailsViewController,
         didUpdate card: YugiohCard
     ) {
-        if let index = cards.firstIndex(where: { $0.id == card.id }) {
-            cards[index] = card
-            tableView.reloadData()
+        // MARK: 4. Update item by finding by ID and replace it in the array
+//        if let index = cards.firstIndex(where: { $0.id == card.id }) {
+//            cards[index] = card
+//            tableView.reloadData()
+//        }
+        do {
+            try store.updateYugiohCard(card)
+        } catch {
+            showError(error)
         }
+        cards = store.loadYugiohCards()
+        //tableView.reloadData()
+        // MARK: Diffable Data Source
+        // MARK: 7. Replace all tableView.reloadData with applySnapshot
+        applySnapshot()
     }
 }
 
@@ -272,20 +396,101 @@ extension ViewController: CardEditViewControllerDelegate {
         _ controller: CardEditViewController,
         didSave card: YugiohCard
     ) {
-        if let index = cards.firstIndex(where: { $0.id == card.id }) {
-            // Update an existing card
-            cards[index] = card
-        } else {
-            // Add a new card
-            cards.append(card)
+//        if let index = cards.firstIndex(where: { $0.id == card.id }) {
+//            // Update an existing card
+//            // cards[index] = card
+//            // MARK: 4. Use the store's functions to update the yugioh card
+//            store.updateYugiohCard(card)
+//        } else {
+//            // Add a new card
+//            //cards.append(card)
+//            // MARK: 4. Use the store's functions to update the yugioh card
+//            store.addYugiohCard(card)
+//        }
+        
+        // MARK: 4. Use the store's functions to do any actions on the cards
+        do {
+            if cards.contains(where: { $0.id == card.id }) {
+                try store.updateYugiohCard(card)
+            } else {
+                try store.addYugiohCard(card)
+            }
+        } catch {
+            showError(error)
         }
+        cards = store.loadYugiohCards()
+//        tableView.reloadData()
+        // MARK: Diffable Data Source
+        // MARK: 7. Replace all tableView.reloadData with applySnapshot
+        applySnapshot()
+    }
+    
+    
+    private func showError(_ error: Error) {
+        let alert = UIAlertController(
+            title: "Couldn't save",
+            message: error.localizedDescription,
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
 
-        tableView.reloadData()
+        // The edit sheet may still be on screen, so present from the topmost controller
+        var top: UIViewController = self
+        while let presented = top.presentedViewController { top = presented }
+        top.present(alert, animated: true)
     }
 }
 
-// UIKit Preview wrapper
+// MARK: Diffable Data Source
+// MARK: 6. We need to subclass UITableViewDiffableDataSource to make sure the section headers are there
+class YugiohCardDataSource: UITableViewDiffableDataSource<CardType, YugiohCard> {
+    override func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
+        snapshot().sectionIdentifiers[section].rawValue
+    }
+}
+//
+//extension ViewController: UISearchResultsUpdating {
+//    func updateSearchResults(for searchController: UISearchController) {
+//        guard let searchText = searchController.searchBar.text?.lowercased(),
+//              !searchText.isEmpty else {
+//            applySnapshot()
+//            return
+//        }
+//
+//        filteredItems = cards.filter { item in
+//            item.name.lowercased().contains(searchText)
+//        }
+//        applySnapshot()
+//    }
+//}
+
+extension ViewController: UISearchResultsUpdating {
+    func updateSearchResults(for searchController: UISearchController) {
+        let searchBar = searchController.searchBar
+        let searchText = searchBar.text?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased() ?? ""
+        let scopeIndex = searchBar.selectedScopeButtonIndex
+
+        // 1. start from all items
+        var results = cards
+
+        // 2. narrow by scope (index 0 is "All")
+        if scopeIndex != 0 {
+            let type = CardType.allCases[scopeIndex - 1]
+            results = results.filter { $0.cardType == type }
+        }
+
+        // 3. narrow by search text
+        if !searchText.isEmpty {
+            results = results.filter { $0.name.lowercased().contains(searchText) }
+        }
+
+        filteredItems = results
+        applySnapshot()
+    }
+}
+
 #Preview {
     UINavigationController(rootViewController: ViewController())
 }
-

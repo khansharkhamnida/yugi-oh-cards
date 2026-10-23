@@ -6,7 +6,11 @@
 //
 import Foundation
 
-struct YugiohCard: Identifiable, Codable {
+// MARK: Value semantics
+// MARK: 1. & 2. Converted item from class to struct, removed init
+// MARK: Diffable Data Source
+// MARK: 1. Conform our custom item to Hashable for diffable to work
+nonisolated struct YugiohCard: Identifiable, Codable, Hashable {
     // CRUD & Identity
     let id: UUID                  // Required for SwiftUI Lists
     var name: String

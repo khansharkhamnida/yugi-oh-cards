@@ -86,6 +86,8 @@ class CardDetailsViewController: UITableViewController {
 
         // Make the status bar text white
         navigationController?.navigationBar.barStyle = .black
+        
+        
     }
     
     @objc func setUpLayout(){
@@ -93,12 +95,10 @@ class CardDetailsViewController: UITableViewController {
     }
     
     private func setupCardImage() {
-        guard let imageName = card.imageURLString,
-              let image = UIImage(named: imageName) else {
-            tableView.tableHeaderView = nil
+        guard let image = CardImageStore.load(card.imageURLString) else { tableView.tableHeaderView = nil
             return
         }
-
+ 
         let headerView = UIView()
         headerView.backgroundColor = .systemBackground
 
@@ -266,6 +266,7 @@ extension CardDetailsViewController: CardEditViewControllerDelegate {
         _ controller: CardEditViewController,
         didSave card: YugiohCard
     ) {
+        
         self.card = card
 
         title = card.name
