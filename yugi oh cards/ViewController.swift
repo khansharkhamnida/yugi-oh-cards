@@ -91,39 +91,12 @@ class ViewController: UIViewController,
         )
     }
     
-    //cardsList
-    var cards: [YugiohCard] = [
-        YugiohCard(
-            name: "Dark Magician",
-            cardType: .monster,
-            description: "The ultimate wizard in terms of attack and defense.",
-            cardNumber: "LOB-005",
-            imageURLString: "dark-magician",
-            attribute: .dark,
-            level: 7,
-            monsterType: .aqua,
-            atk: 2500,
-            def: 2100
-        ),
-        YugiohCard(
-            name: "Blue-Eyes White Dragon",
-            cardType: .monster,
-            description: "This legendary dragon is a powerful engine of destruction.",
-            cardNumber: "LOB-001",
-            attribute: .light,
-            level: 8,
-            monsterType: .dragon,
-            atk: 3000,
-            def: 2500
-        ),
-        YugiohCard(
-            name: "Monster Reborn",
-            cardType: .spell,
-            description: "Special Summon 1 monster from either GY.",
-            cardNumber: "LOB-118",
-            property: .normal
-        )
-    ]
+    // MARK: cardsList will now populate from initial seed
+    var cards: [YugiohCard] = []
+    
+    // MARK: 3. Add store property to main view controller
+    private let store = YugiohCardDataStore.shared
+    
     func setUpLayout(){
         view.backgroundColor = .systemBackground
         
@@ -196,8 +169,15 @@ class ViewController: UIViewController,
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        cards = store.loadYugiohCards()
+        
         setUpUI()
         setUpLayout()
+        
+        NotificationCenter.default.addObserver(forName: UIApplication.willResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            guard let self else { return }
+            try? self.store.saveYugiohCards(self.cards)
+        }
     }
     
     //tableView for the card list
@@ -261,10 +241,13 @@ extension ViewController: CardDetailsViewControllerDelegate {
         didUpdate card: YugiohCard
     ) {
         // MARK: 4. Update item by finding by ID and replace it in the array
-        if let index = cards.firstIndex(where: { $0.id == card.id }) {
-            cards[index] = card
-            tableView.reloadData()
-        }
+//        if let index = cards.firstIndex(where: { $0.id == card.id }) {
+//            cards[index] = card
+//            tableView.reloadData()
+//        }
+        store.updateYugiohCard(card)
+        cards = store.loadYugiohCards()
+        tableView.reloadData()
     }
 }
 
@@ -273,14 +256,25 @@ extension ViewController: CardEditViewControllerDelegate {
         _ controller: CardEditViewController,
         didSave card: YugiohCard
     ) {
-        if let index = cards.firstIndex(where: { $0.id == card.id }) {
-            // Update an existing card
-            cards[index] = card
+//        if let index = cards.firstIndex(where: { $0.id == card.id }) {
+//            // Update an existing card
+//            // cards[index] = card
+//            // MARK: 4. Use the store's functions to update the yugioh card
+//            store.updateYugiohCard(card)
+//        } else {
+//            // Add a new card
+//            //cards.append(card)
+//            // MARK: 4. Use the store's functions to update the yugioh card
+//            store.addYugiohCard(card)
+//        }
+        
+        // MARK: 4. Use the store's functions to do any actions on the cards
+        if cards.contains(where: { $0.id == card.id }) {
+            store.updateYugiohCard(card)
         } else {
-            // Add a new card
-            cards.append(card)
+            store.addYugiohCard(card)
         }
-
+        cards = store.loadYugiohCards()
         tableView.reloadData()
     }
 }
